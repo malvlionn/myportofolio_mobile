@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:myportofolio_mobile/models/item_homepage.dart';
 import 'package:myportofolio_mobile/widgets/info_card.dart';
 import 'package:myportofolio_mobile/widgets/item_card.dart';
+import 'package:myportofolio_mobile/widgets/left_drawer.dart';
 
 export 'package:myportofolio_mobile/models/item_homepage.dart';
 export 'package:myportofolio_mobile/widgets/info_card.dart';
@@ -65,8 +66,10 @@ class MyHomePage extends StatelessWidget {
         ),
         centerTitle: true,
         backgroundColor: colorScheme.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
       ),
+      drawer: const LeftDrawer(),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
