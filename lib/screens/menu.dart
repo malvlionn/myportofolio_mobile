@@ -30,6 +30,12 @@ class MyHomePage extends StatelessWidget {
       subtitle: "Input portofolio",
     ),
     ItemHomepage(
+      "Tambah Pengalaman",
+      Icons.work_history_outlined,
+      Color(0xFF6D28D9),
+      subtitle: "Riwayat karier",
+    ),
+    ItemHomepage(
       "Logout",
       Icons.logout_rounded,
       Color(0xFFB91C1C),
@@ -176,14 +182,14 @@ class MyHomePage extends StatelessWidget {
 
             const SizedBox(height: 12.0),
 
-            // Kisi 3 kolom untuk menampilkan kartu tombol aksi dengan warna unik.
+            // Kisi 2x2 untuk menampilkan 4 kartu tombol aksi secara proporsional.
             GridView.count(
               primary: false,
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
-              crossAxisCount: 3,
-              childAspectRatio: 0.92,
+              crossAxisCount: 2,
+              childAspectRatio: 1.45,
               shrinkWrap: true,
               children: items.map((ItemHomepage item) {
                 return ItemCard(item);
