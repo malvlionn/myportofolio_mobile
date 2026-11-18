@@ -1,7 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:myportofolio_mobile/models/item_homepage.dart';
+import 'package:myportofolio_mobile/screens/experience_form.dart';
 import 'package:myportofolio_mobile/screens/project_form.dart';
 
+/// Kartu tombol aksi interaktif pada halaman menu utama.
 class ItemCard extends StatelessWidget {
   final ItemHomepage item;
 
@@ -15,84 +17,93 @@ class ItemCard extends StatelessWidget {
       elevation: 3.0,
       shadowColor: item.color.withValues(alpha: 0.35),
       clipBehavior: Clip.antiAlias,
-      child: InkWell (onTap: () {
-        ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(item.icon, color: Colors.white, size: 20.0),
-                const SizedBox(width: 10.0),
-                Expanded(
-                  child: Text(
-                    "Kamu telah menekan tombol ${item.name}!",
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
+      child: InkWell(
+        onTap: () {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    Icon(item.icon, color: Colors.white, size: 20.0),
+                    const SizedBox(width: 10.0),
+                    Expanded(
+                      child: Text(
+                        "Kamu telah menekan tombol ${item.name}!",
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            backgroundColor: item.color,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        if (item.name == "Tambah Proyek") {
+                backgroundColor: item.color,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+
+          if (item.name == "Tambah Proyek") {
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => const ProjectFormPage(),
               ),
             );
+          } else if (item.name == "Tambah Pengalaman") {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ExperienceFormPage(),
+              ),
+            );
           }
-      },
-      child: Padding(
-        padding: const EdgeInsets.all(10.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8.0),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.18),
-                shape:BoxShape.circle,
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(10.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8.0),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  item.icon,
+                  color: Colors.white,
+                  size: 26.0,
+                ),
               ),
-              child: Icon(
-                item.icon,
-                color: Colors.white,
-                size: 26.0,
-              ),
-            ),
-            const SizedBox(height: 8.0),
-            Text(
-              item.name,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 12.5,
-              ),
-            ),
-            if (item.subtitle.isNotEmpty) ...[
-              const SizedBox(height: 2.0),
+              const SizedBox(height: 8.0),
               Text(
-                item.subtitle,
+                item.name,
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  fontSize: 10.5,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12.5,
                 ),
               ),
+              if (item.subtitle.isNotEmpty) ...[
+                const SizedBox(height: 2.0),
+                Text(
+                  item.subtitle,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 10.5,
+                  ),
+                ),
+              ],
             ],
-          ],
-        ),
+          ),
         ),
       ),
     );
