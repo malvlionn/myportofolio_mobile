@@ -597,8 +597,7 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                   maxLength: 500,
                   decoration: InputDecoration(
                     labelText: 'Deskripsi & Pencapaian *',
-                    hintText:
-                        'Jelaskan tanggung jawab utama dan dampak yang dihasilkan...',
+                    hintText: 'Jelaskan tanggung jawab utama dan dampak yang dihasilkan...',
                     alignLabelWithHint: true,
                     prefixIcon: const Padding(
                       padding: EdgeInsets.only(bottom: 56.0),

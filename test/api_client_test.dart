@@ -46,86 +46,98 @@ void main() {
       expect(items.first.starredByNames, 'alice, bob');
     });
 
-    test('createExperience sends Token header and excludes read-only id', () async {
-      final mockClient = MockClient((request) async {
-        expect(request.method, 'POST');
-        expect(request.url.path, '/api/v1/experiences/');
-        expect(request.headers['Authorization'], 'Token secret-token');
+    test(
+      'createExperience sends Token header and excludes read-only id',
+      () async {
+        final mockClient = MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/api/v1/experiences/');
+          expect(request.headers['Authorization'], 'Token secret-token');
 
-        final body = jsonDecode(request.body) as Map<String, dynamic>;
-        expect(body.containsKey('id'), isFalse);
-        expect(body['title'], 'Backend Intern - Tech Corp');
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body.containsKey('id'), isFalse);
+          expect(body['title'], 'Backend Intern - Tech Corp');
 
-        return http.Response(
-          jsonEncode({
-            'id': 'exp-uuid-2',
-            'title': body['title'],
-            'category': body['category'],
-            'category_display': 'Internship',
-            'description': body['description'],
-            'thumbnail': '',
-            'started_at': '2026-11-25',
-            'ended_at': null,
-            'is_ongoing': true,
-            'star_count': 0,
-            'is_starred': false,
-            'starred_by_names': '',
-          }),
-          201,
-        );
-      });
-
-      final api = ApiClient(client: mockClient, baseUrl: 'http://example.test');
-      final created = await api.createExperience(
-        const Experience(
-          id: 'ignored-client-id',
-          title: 'Backend Intern - Tech Corp',
-          category: 'internship',
-          description: 'Built REST APIs with Django REST Framework.',
-        ),
-        token: 'secret-token',
-      );
-
-      expect(created.id, 'exp-uuid-2');
-      expect(created.categoryDisplay, 'Internship');
-    });
-
-    test('updateExperience sends PATCH and deleteExperience sends DELETE', () async {
-      final mockClient = MockClient((request) async {
-        expect(request.headers['Authorization'], 'Token secret-token');
-        if (request.method == 'PATCH') {
-          expect(request.url.path, '/api/v1/experiences/exp-1/');
           return http.Response(
             jsonEncode({
-              'id': 'exp-1',
-              'title': 'Updated Title',
-              'category': 'research',
-              'description': 'Updated description text.',
+              'id': 'exp-uuid-2',
+              'title': body['title'],
+              'category': body['category'],
+              'category_display': 'Internship',
+              'description': body['description'],
+              'thumbnail': '',
+              'started_at': '2026-11-25',
+              'ended_at': null,
+              'is_ongoing': true,
+              'star_count': 0,
+              'is_starred': false,
+              'starred_by_names': '',
             }),
-            200,
+            201,
           );
-        }
-        if (request.method == 'DELETE') {
-          expect(request.url.path, '/api/v1/experiences/exp-1/');
-          return http.Response('', 204);
-        }
-        return http.Response('Unexpected', 400);
-      });
+        });
 
-      final api = ApiClient(client: mockClient, baseUrl: 'http://example.test');
-      final updated = await api.updateExperience(
-        'exp-1',
-        const Experience(
-          title: 'Updated Title',
-          category: 'research',
-          description: 'Updated description text.',
-        ),
-        token: 'secret-token',
-      );
-      expect(updated.title, 'Updated Title');
+        final api = ApiClient(
+          client: mockClient,
+          baseUrl: 'http://example.test',
+        );
+        final created = await api.createExperience(
+          const Experience(
+            id: 'ignored-client-id',
+            title: 'Backend Intern - Tech Corp',
+            category: 'internship',
+            description: 'Built REST APIs with Django REST Framework.',
+          ),
+          token: 'secret-token',
+        );
 
-      await api.deleteExperience('exp-1', token: 'secret-token');
-    });
+        expect(created.id, 'exp-uuid-2');
+        expect(created.categoryDisplay, 'Internship');
+      },
+    );
+
+    test(
+      'updateExperience sends PATCH and deleteExperience sends DELETE',
+      () async {
+        final mockClient = MockClient((request) async {
+          expect(request.headers['Authorization'], 'Token secret-token');
+          if (request.method == 'PATCH') {
+            expect(request.url.path, '/api/v1/experiences/exp-1/');
+            return http.Response(
+              jsonEncode({
+                'id': 'exp-1',
+                'title': 'Updated Title',
+                'category': 'research',
+                'description': 'Updated description text.',
+              }),
+              200,
+            );
+          }
+          if (request.method == 'DELETE') {
+            expect(request.url.path, '/api/v1/experiences/exp-1/');
+            return http.Response('', 204);
+          }
+          return http.Response('Unexpected', 400);
+        });
+
+        final api = ApiClient(
+          client: mockClient,
+          baseUrl: 'http://example.test',
+        );
+        final updated = await api.updateExperience(
+          'exp-1',
+          const Experience(
+            title: 'Updated Title',
+            category: 'research',
+            description: 'Updated description text.',
+          ),
+          token: 'secret-token',
+        );
+        expect(updated.title, 'Updated Title');
+
+        await api.deleteExperience('exp-1', token: 'secret-token');
+      },
+    );
 
     test('createAward sends snake_case fields and parses response', () async {
       final mockClient = MockClient((request) async {
@@ -171,32 +183,38 @@ void main() {
       expect(award.isWinner, isTrue);
     });
 
-    test('throws ApiException(401) and AuthState.clearSession resets login', () async {
-      final mockClient = MockClient((request) async {
-        return http.Response('{"detail": "Invalid token."}', 401);
-      });
+    test(
+      'throws ApiException(401) and AuthState.clearSession resets login',
+      () async {
+        final mockClient = MockClient((request) async {
+          return http.Response('{"detail": "Invalid token."}', 401);
+        });
 
-      final api = ApiClient(client: mockClient, baseUrl: 'http://example.test');
-      final authState = AuthState(api, initialToken: 'expired-token');
-      expect(authState.isLoggedIn, isTrue);
+        final api = ApiClient(
+          client: mockClient,
+          baseUrl: 'http://example.test',
+        );
+        final authState = AuthState(api, initialToken: 'expired-token');
+        expect(authState.isLoggedIn, isTrue);
 
-      await expectLater(
-        () => api.createExperience(
-          const Experience(
-            title: 'Test',
-            category: 'internship',
-            description: 'Testing 401 handling',
+        await expectLater(
+          () => api.createExperience(
+            const Experience(
+              title: 'Test',
+              category: 'internship',
+              description: 'Testing 401 handling',
+            ),
+            token: authState.token!,
           ),
-          token: authState.token!,
-        ),
-        throwsA(
-          isA<ApiException>().having((e) => e.statusCode, 'statusCode', 401),
-        ),
-      );
+          throwsA(
+            isA<ApiException>().having((e) => e.statusCode, 'statusCode', 401),
+          ),
+        );
 
-      authState.clearSession();
-      expect(authState.isLoggedIn, isFalse);
-      expect(authState.token, isNull);
-    });
+        authState.clearSession();
+        expect(authState.isLoggedIn, isFalse);
+        expect(authState.token, isNull);
+      },
+    );
   });
 }

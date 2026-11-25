@@ -19,7 +19,7 @@ class ApiException implements Exception {
 /// HTTP client for the MyPortfolio Django REST Framework backend.
 class ApiClient {
   ApiClient({http.Client? client, this.baseUrl = apiBaseUrl})
-      : _client = client ?? http.Client();
+    : _client = client ?? http.Client();
 
   final http.Client _client;
   final String baseUrl;
@@ -27,10 +27,10 @@ class ApiClient {
   Uri _uri(String path) => Uri.parse('$baseUrl$path');
 
   Map<String, String> _authJsonHeaders(String token) => {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json; charset=UTF-8',
-        'Authorization': 'Token $token',
-      };
+    'Accept': 'application/json',
+    'Content-Type': 'application/json; charset=UTF-8',
+    'Authorization': 'Token $token',
+  };
 
   // -------------------- EXPERIENCES --------------------
 
@@ -89,16 +89,10 @@ class ApiClient {
     return Experience.fromJson(decoded);
   }
 
-  Future<void> deleteExperience(
-    String id, {
-    required String token,
-  }) async {
+  Future<void> deleteExperience(String id, {required String token}) async {
     final response = await _client.delete(
       _uri('/api/v1/experiences/$id/'),
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Token $token',
-      },
+      headers: {'Accept': 'application/json', 'Authorization': 'Token $token'},
     );
     _ensureSuccess(response);
   }
@@ -109,10 +103,7 @@ class ApiClient {
   }) async {
     final response = await _client.post(
       _uri('/api/v1/experiences/$id/star/'),
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Token $token',
-      },
+      headers: {'Accept': 'application/json', 'Authorization': 'Token $token'},
     );
     _ensureSuccess(response);
 
@@ -146,10 +137,7 @@ class ApiClient {
     return Award.fromJson(decoded);
   }
 
-  Future<Award> createAward(
-    Award award, {
-    required String token,
-  }) async {
+  Future<Award> createAward(Award award, {required String token}) async {
     final response = await _client.post(
       _uri('/api/v1/awards/'),
       headers: _authJsonHeaders(token),
@@ -177,30 +165,18 @@ class ApiClient {
     return Award.fromJson(decoded);
   }
 
-  Future<void> deleteAward(
-    String id, {
-    required String token,
-  }) async {
+  Future<void> deleteAward(String id, {required String token}) async {
     final response = await _client.delete(
       _uri('/api/v1/awards/$id/'),
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Token $token',
-      },
+      headers: {'Accept': 'application/json', 'Authorization': 'Token $token'},
     );
     _ensureSuccess(response);
   }
 
-  Future<Award> toggleAwardStar(
-    String id, {
-    required String token,
-  }) async {
+  Future<Award> toggleAwardStar(String id, {required String token}) async {
     final response = await _client.post(
       _uri('/api/v1/awards/$id/star/'),
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Token $token',
-      },
+      headers: {'Accept': 'application/json', 'Authorization': 'Token $token'},
     );
     _ensureSuccess(response);
 

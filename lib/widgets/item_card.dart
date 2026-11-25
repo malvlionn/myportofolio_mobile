@@ -91,18 +91,14 @@ class ItemCard extends StatelessWidget {
           } else if (item.name == "Lihat Penghargaan") {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => const AwardListScreen(),
-              ),
+              MaterialPageRoute(builder: (context) => const AwardListScreen()),
             );
           } else if (item.name == "Tambah Penghargaan") {
             if (!await ensureLoggedIn(context)) return;
             if (!context.mounted) return;
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => const AwardFormPage(),
-              ),
+              MaterialPageRoute(builder: (context) => const AwardFormPage()),
             );
           }
         },

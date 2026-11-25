@@ -151,7 +151,9 @@ class _ExperienceDetailScreenState extends State<ExperienceDetailScreen> {
             tooltip: 'Star',
             onPressed: _isProcessing ? null : _toggleStar,
             icon: Icon(
-              _experience.isStarred ? Icons.star_rounded : Icons.star_border_rounded,
+              _experience.isStarred
+                  ? Icons.star_rounded
+                  : Icons.star_border_rounded,
               color: _experience.isStarred ? Colors.amber : null,
             ),
           ),

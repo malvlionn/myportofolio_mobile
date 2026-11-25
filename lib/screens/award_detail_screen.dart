@@ -7,11 +7,7 @@ import 'package:myportofolio_mobile/widgets/auth_guard.dart';
 import 'package:provider/provider.dart';
 
 class AwardDetailScreen extends StatefulWidget {
-  const AwardDetailScreen({
-    required this.award,
-    this.onDataChanged,
-    super.key,
-  });
+  const AwardDetailScreen({required this.award, this.onDataChanged, super.key});
 
   final Award award;
   final VoidCallback? onDataChanged;
@@ -42,7 +38,9 @@ class _AwardDetailScreenState extends State<AwardDetailScreen> {
       await ensureLoggedIn(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Operasi gagal (${e.statusCode}): ${e.message}')),
+        SnackBar(
+          content: Text('Operasi gagal (${e.statusCode}): ${e.message}'),
+        ),
       );
     }
   }
