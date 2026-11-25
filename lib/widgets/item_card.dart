@@ -1,9 +1,12 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:myportofolio_mobile/models/item_homepage.dart';
 import 'package:myportofolio_mobile/screens/experience_form.dart';
+import 'package:myportofolio_mobile/screens/experience_list_screen.dart';
 import 'package:myportofolio_mobile/screens/project_form.dart';
+import 'package:myportofolio_mobile/services/auth_state.dart';
+import 'package:myportofolio_mobile/widgets/auth_guard.dart';
+import 'package:provider/provider.dart';
 
-/// Kartu tombol aksi interaktif pada halaman menu utama.
 class ItemCard extends StatelessWidget {
   final ItemHomepage item;
 
@@ -18,7 +21,24 @@ class ItemCard extends StatelessWidget {
       shadowColor: item.color.withValues(alpha: 0.35),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () {
+        onTap: () async {
+          if (item.name == "Logout") {
+            if (!context.read<AuthState>().isLoggedIn) {
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  const SnackBar(content: Text('Kamu belum login.')),
+                );
+              return;
+            }
+            await context.read<AuthState>().logout();
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(const SnackBar(content: Text('Logout berhasil!')));
+            return;
+          }
+
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
             ..showSnackBar(
@@ -47,15 +67,23 @@ class ItemCard extends StatelessWidget {
           if (item.name == "Tambah Proyek") {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => const ProjectFormPage(),
-              ),
+              MaterialPageRoute(builder: (context) => const ProjectFormPage()),
             );
           } else if (item.name == "Tambah Pengalaman") {
+            if (!await ensureLoggedIn(context)) return;
+            if (!context.mounted) return;
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => const ExperienceFormPage(),
+              ),
+            );
+          } else if (item.name == "Lihat Proyek" ||
+              item.name == "Lihat Pengalaman") {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ExperienceListScreen(),
               ),
             );
           }
@@ -71,11 +99,7 @@ class ItemCard extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.18),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  item.icon,
-                  color: Colors.white,
-                  size: 26.0,
-                ),
+                child: Icon(item.icon, color: Colors.white, size: 26.0),
               ),
               const SizedBox(height: 8.0),
               Text(

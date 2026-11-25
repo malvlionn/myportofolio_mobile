@@ -6,10 +6,5 @@ class ItemHomepage {
   final Color color;
   final String subtitle;
 
-  const ItemHomepage(
-    this.name,
-    this.icon,
-    this.color, {
-      this.subtitle = '',
-    });
+  const ItemHomepage(this.name, this.icon, this.color, {this.subtitle = ''});
 }

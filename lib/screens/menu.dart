@@ -166,10 +166,7 @@ class MyHomePage extends StatelessWidget {
 
             const Text(
               'Menu Portofolio',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 17.0,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17.0),
             ),
             const SizedBox(height: 4.0),
             Text(

@@ -1,5 +1,10 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:myportofolio_mobile/models/experience.dart';
+import 'package:myportofolio_mobile/services/api_client.dart';
+import 'package:myportofolio_mobile/services/auth_state.dart';
+import 'package:myportofolio_mobile/widgets/auth_guard.dart';
 import 'package:myportofolio_mobile/widgets/left_drawer.dart';
+import 'package:provider/provider.dart';
 
 class ExperienceFormPage extends StatefulWidget {
   const ExperienceFormPage({super.key});
@@ -16,13 +21,14 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _proofUrlController = TextEditingController();
 
-  static const List<String> _experienceTypes = [
-    'Magang (Internship)',
-    'Organisasi dan Kepanitiaan',
-    'Asisten Dosen atau Riset',
-    'Paruh Waktu (Part-time)',
-    'Sukarelawan (Volunteer)',
-  ];
+  static const Map<String, String> _categoryOptions = {
+    'internship': 'Internship',
+    'research': 'Research',
+    'volunteer': 'Volunteer',
+    'part-time': 'Part-Time',
+    'full-time': 'Full-Time',
+    'freelance': 'Freelance',
+  };
 
   static const List<String> _monthNames = [
     'Januari',
@@ -39,10 +45,11 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
     'Desember',
   ];
 
-  String _experienceType = _experienceTypes.first;
+  String _selectedCategory = _categoryOptions.keys.first;
   DateTime? _startDate;
   DateTime? _endDate;
   bool _isCurrent = false;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -54,23 +61,26 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
   }
 
   String _formatDate(DateTime date) {
-    return '${date.day} ${_monthNames[date.month -1]}${date.year}';
+    return '${date.day} ${_monthNames[date.month - 1]} ${date.year}';
   }
 
   String _calculateDurationText() {
     if (_startDate == null) return '-';
-    final DateTime end = _isCurrent ? DateTime.now() : (_endDate ?? _startDate!);
-    int totalMonths = (end.year - _startDate!.year) * 12 + (end.month - _startDate!.month);
+    final DateTime end = _isCurrent
+        ? DateTime.now()
+        : (_endDate ?? _startDate!);
+    int totalMonths =
+        (end.year - _startDate!.year) * 12 + (end.month - _startDate!.month);
     if (end.day >= _startDate!.day) {
       totalMonths += 1;
     }
     if (totalMonths <= 0) totalMonths = 1;
 
-    final int years = totalMonths ~/12;
+    final int years = totalMonths ~/ 12;
     final int months = totalMonths % 12;
-    
+
     if (years > 0 && months > 0) {
-      return '$years tahun$months bulan';
+      return '$years tahun $months bulan';
     } else if (years > 0) {
       return '$years tahun';
     }
@@ -79,154 +89,220 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
 
   String? _validateRequiredText(
     String? value, {
-      required String fieldLabel,
-      required int minLength,
-      required int maxLength, 
-    }) {
-      if (value == null || value.trim().isEmpty) {
-        return '$fieldLabel tidak boleh kosong!';
-      }
-      final String trimmed = value.trim();
-      if (trimmed.length < minLength) {
-        return '$fieldLabel minimal terdiri dari$minLength karakter.';
-      }
-      if (trimmed.length > maxLength) {
-        return '$fieldLabel maksimal$maxLength karakter.';
-      }
+    required String fieldLabel,
+    required int minLength,
+    required int maxLength,
+  }) {
+    if (value == null || value.trim().isEmpty) {
+      return '$fieldLabel tidak boleh kosong!';
+    }
+    final String trimmed = value.trim();
+    if (trimmed.length < minLength) {
+      return '$fieldLabel minimal terdiri dari $minLength karakter.';
+    }
+    if (trimmed.length > maxLength) {
+      return '$fieldLabel maksimal $maxLength karakter.';
+    }
+    return null;
+  }
+
+  String? _validateOptionalUrl(String? value) {
+    if (value == null || value.trim().isEmpty) {
       return null;
     }
+    final Uri? uri = Uri.tryParse(value.trim());
+    final bool hasValidScheme =
+        uri != null && (uri.scheme == 'http' || uri.scheme == 'https');
+    final bool hasValidHost =
+        uri != null && uri.host.isNotEmpty && uri.host.contains('.');
 
-    String? _validateOptionalUrl(String? value) {
-      if (value == null || value.trim().isEmpty) {
-        return null;
-      }
-      final Uri? uri = Uri.tryParse(value.trim());
-      final bool hasValidScheme = uri != null && (uri.scheme == 'http' || uri.scheme == 'https');
-      final bool hasValidHost = uri != null && uri.host.isNotEmpty && uri.host.contains('.');
-
-      if (!hasValidScheme || !hasValidHost) {
-        return 'URL tidak valid. Awali dengan http:// atau https://';
-      }
-      return null;
+    if (!hasValidScheme || !hasValidHost) {
+      return 'URL tidak valid. Awali dengan http:// atau https://';
     }
+    return null;
+  }
 
-    Future<void> _pickDate({
-      required FormFieldState<DateTime> fieldState,
-      required bool isStart,
-    }) async {
-      final DateTime now = DateTime.now();
-      final DateTime initialDate = isStart ? (_startDate ?? now) : (_endDate ?? _startDate ?? now);
+  Future<void> _pickDate({
+    required FormFieldState<DateTime> fieldState,
+    required bool isStart,
+  }) async {
+    final DateTime now = DateTime.now();
+    final DateTime initialDate = isStart
+        ? (_startDate ?? now)
+        : (_endDate ?? _startDate ?? now);
 
-      final DateTime? picked = await showDatePicker(
-        context: context,
-        initialDate: initialDate,
-        firstDate: DateTime(2000),
-        lastDate: DateTime(2035),
-        helpText: isStart ? 'Pilih Tanggal Mulai' : 'Pilih Tanggal Selesai',
-        cancelText: 'Batal',
-        confirmText: 'Pilih', 
-      );
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2035),
+      helpText: isStart ? 'Pilih Tanggal Mulai' : 'Pilih Tanggal Selesai',
+      cancelText: 'Batal',
+      confirmText: 'Pilih',
+    );
 
-      if (picked != null) {
-        setState(() {
-          if (isStart) {
-            _startDate = picked;
-          } else {
-            _endDate = picked;
-          }
-        });
-        fieldState.didChange(picked);
-      }
+    if (picked != null) {
+      setState(() {
+        if (isStart) {
+          _startDate = picked;
+        } else {
+          _endDate = picked;
+        }
+      });
+      fieldState.didChange(picked);
     }
+  }
 
-    void _resetForm() {
+  void _resetForm() {
     _formKey.currentState?.reset();
     _roleController.clear();
     _organizationController.clear();
     _descriptionController.clear();
     _proofUrlController.clear();
     setState(() {
-      _experienceType = _experienceTypes.first;
+      _selectedCategory = _categoryOptions.keys.first;
       _startDate = null;
       _endDate = null;
       _isCurrent = false;
-    });      
-    }
+    });
+  }
 
-    void _handleSubmit() {
+  Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
+    if (!await ensureLoggedIn(context)) return;
+    if (!mounted) return;
+
+    final String? token = context.read<AuthState>().token;
+    if (token == null) return;
+
     final String role = _roleController.text.trim();
     final String organization = _organizationController.text.trim();
+    final String title = '$role - $organization';
     final String description = _descriptionController.text.trim();
     final String proofUrl = _proofUrlController.text.trim();
-    final String startLabel =
-        _startDate != null ? _formatDate(_startDate!) : '-';
+    final String categoryLabel =
+        _categoryOptions[_selectedCategory] ?? _selectedCategory;
+    final String startLabel = _startDate != null
+        ? _formatDate(_startDate!)
+        : '-';
     final String endLabel = _isCurrent
         ? 'Sekarang'
         : (_endDate != null ? _formatDate(_endDate!) : '-');
     final String durationLabel = _calculateDurationText();
 
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        final ColorScheme colorScheme = Theme.of(dialogContext).colorScheme;
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Icon(
-                Icons.check_circle_rounded,
-                color: colorScheme.primary,
-                size: 26.0,
-              ),
-              const SizedBox(width: 10.0),
-              const Expanded(
-                child: Text(
-                  'Pengalaman Disimpan!',
-                  style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+    final String? endedAtIso = (!_isCurrent && _endDate != null)
+        ? '${_endDate!.year.toString().padLeft(4, '0')}-'
+              '${_endDate!.month.toString().padLeft(2, '0')}-'
+              '${_endDate!.day.toString().padLeft(2, '0')}'
+        : null;
+
+    final newExperience = Experience(
+      title: title,
+      category: _selectedCategory,
+      description: description,
+      thumbnail: proofUrl,
+      endedAt: endedAtIso,
+    );
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await context.read<ApiClient>().createExperience(
+        newExperience,
+        token: token,
+      );
+      if (!mounted) return;
+
+      showDialog<void>(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          final ColorScheme colorScheme = Theme.of(dialogContext).colorScheme;
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
               children: [
-                _SummaryRow(label: 'Posisi / Peran', value: role),
-                _SummaryRow(label: 'Organisasi / Instansi', value: organization),
-                _SummaryRow(label: 'Tipe Pengalaman', value: _experienceType),
-                _SummaryRow(
-                  label: 'Periode',
-                  value: '$startLabel – $endLabel ($durationLabel)',
+                Icon(
+                  Icons.check_circle_rounded,
+                  color: colorScheme.primary,
+                  size: 26.0,
                 ),
-                _SummaryRow(label: 'Deskripsi', value: description),
-                _SummaryRow(
-                  label: 'Tautan Bukti',
-                  value: proofUrl.isEmpty ? 'Tidak dilampirkan' : proofUrl,
+                const SizedBox(width: 10.0),
+                const Expanded(
+                  child: Text(
+                    'Pengalaman Disimpan!',
+                    style: TextStyle(
+                      fontSize: 18.0,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                _resetForm();
-              },
-              child: const Text('Tutup'),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _SummaryRow(label: 'Posisi / Peran', value: role),
+                  _SummaryRow(
+                    label: 'Organisasi / Instansi',
+                    value: organization,
+                  ),
+                  _SummaryRow(label: 'Tipe Pengalaman', value: categoryLabel),
+                  _SummaryRow(
+                    label: 'Periode',
+                    value: '$startLabel – $endLabel ($durationLabel)',
+                  ),
+                  _SummaryRow(label: 'Deskripsi', value: description),
+                  _SummaryRow(
+                    label: 'Tautan Bukti',
+                    value: proofUrl.isEmpty ? 'Tidak dilampirkan' : proofUrl,
+                  ),
+                ],
+              ),
             ),
-          ],
+            actions: [
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  _resetForm();
+                },
+                child: const Text('Tutup'),
+              ),
+            ],
+          );
+        },
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.statusCode == 401) {
+        await context.read<AuthState>().logout();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sesi habis (401). Silakan login kembali.'),
+          ),
         );
-      },
-    );      
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal menyimpan (${e.statusCode}): ${e.message}'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
-@override
+  }
+
+  @override
   Widget build(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
 
@@ -234,10 +310,7 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
       appBar: AppBar(
         title: const Text(
           'Tambah Pengalaman',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         backgroundColor: colorScheme.primary,
@@ -253,7 +326,6 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Header pengantar formulir
                 Container(
                   padding: const EdgeInsets.all(14.0),
                   decoration: BoxDecoration(
@@ -273,17 +345,14 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                       const SizedBox(width: 12.0),
                       const Expanded(
                         child: Text(
-                          'Catat pengalaman magang, organisasi, kepanitiaan, atau riset ke dalam portofolio.',
+                          'Catat pengalaman magang, riset, sukarelawan, atau pekerjaan ke dalam portofolio.',
                           style: TextStyle(fontSize: 13.0),
                         ),
                       ),
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 16.0),
-
-                // 1. Posisi / Peran
                 TextFormField(
                   controller: _roleController,
                   textInputAction: TextInputAction.next,
@@ -302,10 +371,7 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                     maxLength: 100,
                   ),
                 ),
-
                 const SizedBox(height: 14.0),
-
-                // 2. Organisasi / Perusahaan
                 TextFormField(
                   controller: _organizationController,
                   textInputAction: TextInputAction.next,
@@ -324,12 +390,9 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                     maxLength: 100,
                   ),
                 ),
-
                 const SizedBox(height: 14.0),
-
-                // 3. Tipe Pengalaman
                 DropdownButtonFormField<String>(
-                  initialValue: _experienceType,
+                  initialValue: _selectedCategory,
                   decoration: InputDecoration(
                     labelText: 'Tipe Pengalaman *',
                     prefixIcon: const Icon(Icons.category_outlined),
@@ -337,18 +400,18 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                       borderRadius: BorderRadius.circular(10.0),
                     ),
                   ),
-                  items: _experienceTypes
+                  items: _categoryOptions.entries
                       .map(
-                        (String type) => DropdownMenuItem<String>(
-                          value: type,
-                          child: Text(type),
+                        (entry) => DropdownMenuItem<String>(
+                          value: entry.key,
+                          child: Text(entry.value),
                         ),
                       )
                       .toList(),
                   onChanged: (String? newValue) {
                     if (newValue != null) {
                       setState(() {
-                        _experienceType = newValue;
+                        _selectedCategory = newValue;
                       });
                     }
                   },
@@ -359,10 +422,7 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 14.0),
-
-                // 4. Tanggal Mulai (showDatePicker terintegrasi FormField)
                 FormField<DateTime>(
                   validator: (_) {
                     if (_startDate == null) {
@@ -379,10 +439,8 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                       children: [
                         InkWell(
                           borderRadius: BorderRadius.circular(10.0),
-                          onTap: () => _pickDate(
-                            fieldState: fieldState,
-                            isStart: true,
-                          ),
+                          onTap: () =>
+                              _pickDate(fieldState: fieldState, isStart: true),
                           child: InputDecorator(
                             decoration: InputDecoration(
                               labelText: 'Tanggal Mulai *',
@@ -409,15 +467,15 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                     );
                   },
                 ),
-
                 const SizedBox(height: 8.0),
-
-                // Fitur ekstra UX: Switch masih aktif saat ini
                 SwitchListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 4.0),
                   title: const Text(
                     'Saat ini masih aktif di posisi ini',
-                    style: TextStyle(fontSize: 14.0, fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                      fontSize: 14.0,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   value: _isCurrent,
                   onChanged: (bool value) {
@@ -429,10 +487,7 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                     });
                   },
                 ),
-
                 const SizedBox(height: 6.0),
-
-                // 5. Tanggal Selesai (nonaktif otomatis jika _isCurrent == true)
                 FormField<DateTime>(
                   validator: (_) {
                     if (_isCurrent) return null;
@@ -450,14 +505,16 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                       onTap: _isCurrent
                           ? null
                           : () => _pickDate(
-                                fieldState: fieldState,
-                                isStart: false,
-                              ),
+                              fieldState: fieldState,
+                              isStart: false,
+                            ),
                       child: InputDecorator(
                         decoration: InputDecoration(
                           labelText: 'Tanggal Selesai',
                           enabled: !_isCurrent,
-                          prefixIcon: const Icon(Icons.event_available_outlined),
+                          prefixIcon: const Icon(
+                            Icons.event_available_outlined,
+                          ),
                           suffixIcon: const Icon(Icons.calendar_today),
                           errorText: _isCurrent ? null : fieldState.errorText,
                           border: OutlineInputBorder(
@@ -468,8 +525,8 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                           _isCurrent
                               ? 'Sekarang (Masih aktif)'
                               : (_endDate != null
-                                  ? _formatDate(_endDate!)
-                                  : 'Pilih tanggal selesai'),
+                                    ? _formatDate(_endDate!)
+                                    : 'Pilih tanggal selesai'),
                           style: TextStyle(
                             color: (!_isCurrent && _endDate != null)
                                 ? colorScheme.onSurface
@@ -480,18 +537,14 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                     );
                   },
                 ),
-
                 const SizedBox(height: 14.0),
-
-                // 6. Deskripsi & Pencapaian
                 TextFormField(
                   controller: _descriptionController,
                   maxLines: 4,
                   maxLength: 500,
                   decoration: InputDecoration(
                     labelText: 'Deskripsi & Pencapaian *',
-                    hintText:
-                        'Jelaskan tanggung jawab utama dan dampak yang dihasilkan...',
+                    hintText: 'Jelaskan tanggung jawab utama dan dampak yang dihasilkan...',
                     alignLabelWithHint: true,
                     prefixIcon: const Padding(
                       padding: EdgeInsets.only(bottom: 56.0),
@@ -508,17 +561,14 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                     maxLength: 500,
                   ),
                 ),
-
                 const SizedBox(height: 10.0),
-
-                // 7. Tautan Bukti / Sertifikat (Opsional dengan validasi URL)
                 TextFormField(
                   controller: _proofUrlController,
                   keyboardType: TextInputType.url,
                   textInputAction: TextInputAction.done,
                   decoration: InputDecoration(
-                    labelText: 'Tautan Bukti / Sertifikat (Opsional)',
-                    hintText: 'https://linkedin.com/... atau https://drive.google.com/...',
+                    labelText: 'Tautan Gambar / Thumbnail (Opsional)',
+                    hintText: 'https://example.com/image.png',
                     prefixIcon: const Icon(Icons.link_rounded),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10.0),
@@ -526,16 +576,13 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                   ),
                   validator: _validateOptionalUrl,
                 ),
-
                 const SizedBox(height: 22.0),
-
-                // Baris tombol Reset dan Simpan agar tetap terjangkau di layar sempit
                 Row(
                   children: [
                     Expanded(
                       flex: 1,
                       child: OutlinedButton.icon(
-                        onPressed: _resetForm,
+                        onPressed: _isSubmitting ? null : _resetForm,
                         icon: const Icon(Icons.refresh_rounded),
                         label: const Text('Reset'),
                         style: OutlinedButton.styleFrom(
@@ -550,11 +597,19 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                     Expanded(
                       flex: 2,
                       child: FilledButton.icon(
-                        onPressed: _handleSubmit,
-                        icon: const Icon(Icons.save_rounded),
-                        label: const Text(
-                          'Simpan',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                        onPressed: _isSubmitting ? null : _handleSubmit,
+                        icon: _isSubmitting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.save_rounded),
+                        label: Text(
+                          _isSubmitting ? 'Menyimpan...' : 'Simpan',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14.0),
@@ -579,12 +634,9 @@ class _SummaryRow extends StatelessWidget {
   final String label;
   final String value;
 
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-  });
+  const _SummaryRow({required this.label, required this.value});
 
-@override
+  @override
   Widget build(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
     return Padding(
@@ -601,10 +653,7 @@ class _SummaryRow extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 2.0),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 13.5),
-          ),
+          Text(value, style: const TextStyle(fontSize: 13.5)),
         ],
       ),
     );
