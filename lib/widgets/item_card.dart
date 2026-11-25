@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:myportofolio_mobile/models/item_homepage.dart';
+import 'package:myportofolio_mobile/screens/award_form.dart';
+import 'package:myportofolio_mobile/screens/award_list_screen.dart';
 import 'package:myportofolio_mobile/screens/experience_form.dart';
 import 'package:myportofolio_mobile/screens/experience_list_screen.dart';
 import 'package:myportofolio_mobile/screens/project_form.dart';
@@ -84,6 +86,22 @@ class ItemCard extends StatelessWidget {
               context,
               MaterialPageRoute(
                 builder: (context) => const ExperienceListScreen(),
+              ),
+            );
+          } else if (item.name == "Lihat Penghargaan") {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AwardListScreen(),
+              ),
+            );
+          } else if (item.name == "Tambah Penghargaan") {
+            if (!await ensureLoggedIn(context)) return;
+            if (!context.mounted) return;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AwardFormPage(),
               ),
             );
           }

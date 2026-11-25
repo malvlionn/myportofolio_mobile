@@ -18,22 +18,34 @@ class MyHomePage extends StatelessWidget {
 
   static const List<ItemHomepage> items = [
     ItemHomepage(
-      "Lihat Proyek",
-      Icons.folder_open_rounded,
+      "Lihat Pengalaman",
+      Icons.work_outline_rounded,
       Color(0xFF1E40AF),
-      subtitle: "Eksplorasi karya",
+      subtitle: "Riwayat karier",
+    ),
+    ItemHomepage(
+      "Tambah Pengalaman",
+      Icons.work_history_outlined,
+      Color(0xFF6D28D9),
+      subtitle: "Input pengalaman",
+    ),
+    ItemHomepage(
+      "Lihat Penghargaan",
+      Icons.emoji_events_outlined,
+      Color(0xFF0F766E),
+      subtitle: "Daftar prestasi",
+    ),
+    ItemHomepage(
+      "Tambah Penghargaan",
+      Icons.workspace_premium_outlined,
+      Color(0xFFB45309),
+      subtitle: "Input prestasi",
     ),
     ItemHomepage(
       "Tambah Proyek",
       Icons.add_circle_outline_rounded,
       Color(0xFF047857),
       subtitle: "Input portofolio",
-    ),
-    ItemHomepage(
-      "Tambah Pengalaman",
-      Icons.work_history_outlined,
-      Color(0xFF6D28D9),
-      subtitle: "Riwayat karier",
     ),
     ItemHomepage(
       "Logout",
