@@ -7,7 +7,9 @@ import 'package:myportofolio_mobile/widgets/left_drawer.dart';
 import 'package:provider/provider.dart';
 
 class ExperienceFormPage extends StatefulWidget {
-  const ExperienceFormPage({super.key});
+  const ExperienceFormPage({this.initialExperience, super.key});
+
+  final Experience? initialExperience;
 
   @override
   State<ExperienceFormPage> createState() => _ExperienceFormPageState();
@@ -50,6 +52,35 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
   DateTime? _endDate;
   bool _isCurrent = false;
   bool _isSubmitting = false;
+
+  bool get _isEditMode => widget.initialExperience?.id != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.initialExperience;
+    if (existing != null) {
+      final parts = existing.title.split(' - ');
+      _roleController.text = parts.first.trim();
+      _organizationController.text = parts.length > 1
+          ? parts.sublist(1).join(' - ').trim()
+          : 'Portfolio';
+      if (_categoryOptions.containsKey(existing.category)) {
+        _selectedCategory = existing.category;
+      }
+      _descriptionController.text = existing.description;
+      _proofUrlController.text = existing.thumbnail;
+      _startDate = existing.startedAt != null
+          ? DateTime.tryParse(existing.startedAt!) ?? DateTime.now()
+          : DateTime.now();
+      if (existing.endedAt != null && existing.endedAt!.isNotEmpty) {
+        _endDate = DateTime.tryParse(existing.endedAt!);
+        _isCurrent = _endDate == null;
+      } else {
+        _isCurrent = true;
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -199,7 +230,7 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
               '${_endDate!.day.toString().padLeft(2, '0')}'
         : null;
 
-    final newExperience = Experience(
+    final payload = Experience(
       title: title,
       category: _selectedCategory,
       description: description,
@@ -210,13 +241,17 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
     setState(() => _isSubmitting = true);
 
     try {
-      await context.read<ApiClient>().createExperience(
-        newExperience,
-        token: token,
-      );
+      final api = context.read<ApiClient>();
+      final saved = _isEditMode
+          ? await api.updateExperience(
+              widget.initialExperience!.id!,
+              payload,
+              token: token,
+            )
+          : await api.createExperience(payload, token: token);
       if (!mounted) return;
 
-      showDialog<void>(
+      await showDialog<void>(
         context: context,
         builder: (BuildContext dialogContext) {
           final ColorScheme colorScheme = Theme.of(dialogContext).colorScheme;
@@ -232,10 +267,12 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                   size: 26.0,
                 ),
                 const SizedBox(width: 10.0),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Pengalaman Disimpan!',
-                    style: TextStyle(
+                    _isEditMode
+                        ? 'Pengalaman Diperbarui!'
+                        : 'Pengalaman Disimpan!',
+                    style: const TextStyle(
                       fontSize: 18.0,
                       fontWeight: FontWeight.bold,
                     ),
@@ -267,12 +304,23 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
               ),
             ),
             actions: [
-              FilledButton(
+              TextButton(
                 onPressed: () {
                   Navigator.pop(dialogContext);
                   _resetForm();
                 },
-                child: const Text('Tutup'),
+                child: const Text('Tambah Lagi'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context, saved);
+                  } else {
+                    _resetForm();
+                  }
+                },
+                child: const Text('Kembali ke Daftar'),
               ),
             ],
           );
@@ -281,13 +329,13 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
     } on ApiException catch (e) {
       if (!mounted) return;
       if (e.statusCode == 401) {
-        await context.read<AuthState>().logout();
-        if (!mounted) return;
+        context.read<AuthState>().clearSession();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Sesi habis (401). Silakan login kembali.'),
           ),
         );
+        await ensureLoggedIn(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -308,16 +356,19 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Tambah Pengalaman',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        title: Text(
+          _isEditMode ? 'Edit Pengalaman' : 'Tambah Pengalaman',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         centerTitle: true,
         backgroundColor: colorScheme.primary,
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
       ),
-      drawer: const LeftDrawer(),
+      drawer: _isEditMode ? null : const LeftDrawer(),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -424,6 +475,7 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                 ),
                 const SizedBox(height: 14.0),
                 FormField<DateTime>(
+                  initialValue: _startDate,
                   validator: (_) {
                     if (_startDate == null) {
                       return 'Tanggal mulai wajib dipilih.';
@@ -489,6 +541,7 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                 ),
                 const SizedBox(height: 6.0),
                 FormField<DateTime>(
+                  initialValue: _endDate,
                   validator: (_) {
                     if (_isCurrent) return null;
                     if (_endDate == null) {
@@ -608,7 +661,9 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                               )
                             : const Icon(Icons.save_rounded),
                         label: Text(
-                          _isSubmitting ? 'Menyimpan...' : 'Simpan',
+                          _isSubmitting
+                              ? 'Menyimpan...'
+                              : (_isEditMode ? 'Perbarui' : 'Simpan'),
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         style: FilledButton.styleFrom(

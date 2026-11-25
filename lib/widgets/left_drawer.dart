@@ -1,4 +1,6 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:myportofolio_mobile/screens/award_form.dart';
+import 'package:myportofolio_mobile/screens/award_list_screen.dart';
 import 'package:myportofolio_mobile/screens/experience_form.dart';
 import 'package:myportofolio_mobile/screens/experience_list_screen.dart';
 import 'package:myportofolio_mobile/screens/login_screen.dart';
@@ -36,7 +38,7 @@ class LeftDrawer extends StatelessWidget {
                 ),
                 SizedBox(height: 8),
                 Text(
-                  'Explore personal projects and experiences!',
+                  'Explore experiences, awards, and projects!',
                   style: TextStyle(fontSize: 14, color: Colors.white70),
                 ),
               ],
@@ -53,12 +55,13 @@ class LeftDrawer extends StatelessWidget {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.add_circle_outline),
-            title: const Text('Add Project'),
+            leading: const Icon(Icons.list_alt_outlined),
+            title: const Text('Experiences'),
             onTap: () {
+              Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const ProjectFormPage()),
+                MaterialPageRoute(builder: (_) => const ExperienceListScreen()),
               );
             },
           ),
@@ -75,13 +78,35 @@ class LeftDrawer extends StatelessWidget {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.list_alt_outlined),
-            title: const Text('Experiences'),
+            leading: const Icon(Icons.emoji_events_outlined),
+            title: const Text('Awards'),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const ExperienceListScreen()),
+                MaterialPageRoute(builder: (_) => const AwardListScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.workspace_premium_outlined),
+            title: const Text('Add Award'),
+            onTap: () async {
+              if (!await ensureLoggedIn(context)) return;
+              if (!context.mounted) return;
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AwardFormPage()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.add_circle_outline),
+            title: const Text('Add Project'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProjectFormPage()),
               );
             },
           ),
