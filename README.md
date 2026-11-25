@@ -139,3 +139,73 @@ AI DISCLOSURE
     - Proporsi Tata Letak Kartu Aksi pada Layar Sempit: Penambahan kartu aksi ke-4 (Tambah Pengalaman) pada tata letak lama GridView.count(crossAxisCount: 3) membuat baris kedua hanya terisi satu kartu dan menyebabkan label teks terpotong pada lebar layar ponsel (360px). Saya mengubah konfigurasi grid secara manual menjadi kisi 2x2 (crossAxisCount: 2, childAspectRatio: 1.45) agar seluruh kartu tampil simetris dan mudah dibaca.
 
     - Kepatuhan API Flutter Terbaru & Manajemen Memori (flutter analyze): Beberapa draf kode Dart berpotensi memicu peringatan deprecated member use (seperti .withOpacity() atau value pada DropdownButtonFormField). Saya melakukan verifikasi melalui flutter analyze, menggantinya dengan .withValues(alpha: ...) dan initialValue, serta memastikan seluruh TextEditingController dibersihkan melalui metode dispose().
+
+### Assignment 9
+
+1. Penggunaan `@JsonSerializable(fieldRename: FieldRename.snake)` dan `@JsonKey(includeToJson: false)` serta Bug yang Dicegah:
+
+    - Pemisahan Lapisan Data dan Compile-Time Type Safety: Dengan mendefinisikan kelas model bertipe kuat (`Experience` di `lib/models/experience.dart` dan `Award` di `lib/models/award.dart`) menggunakan `@JsonSerializable`, logika serialisasi dan deserialisasi dipisahkan dari lapisan antarmuka pengguna (widget). Pendekatan ini memberikan pemeriksaan tipe saat kompilasi (*compile-time type safety*), sehingga kesalahan tipe data atau salah ketik nama atribut langsung terdeteksi oleh Dart analyzer sebelum aplikasi dijalankan—berbeda dengan `Map<String, dynamic>` mentah yang baru ketahuan gagal saat *runtime*.
+
+    - Konversi Otomatis `camelCase` ke `snake_case`: Parameter `fieldRename: FieldRename.snake` secara otomatis memetakan konvensi penamaan variabel *camelCase* pada Dart (seperti `categoryDisplay`, `startedAt`, `endedAt`, `isOngoing`, `certificateUrl`, `isWinner`, `starCount`, dan `starredByNames`) ke kunci JSON *snake_case* yang digunakan oleh `ExperienceSerializer` dan `AwardSerializer` di Django REST Framework (`category_display`, `started_at`, `ended_at`, `is_ongoing`, `certificate_url`, `is_winner`, `star_count`, dan `starred_by_names`).
+
+    - Pengecualian Field Read-Only Server dengan `@JsonKey(includeToJson: false)`: Anotasi ini memastikan atribut yang dibuat atau dihitung sepenuhnya oleh server—seperti `id` (UUID), `started_at`, `created_at`, `category_display`, `is_ongoing`, `star_count`, `is_starred`, dan `starred_by_names`—tidak ikut dikirim ke dalam payload JSON saat aplikasi melakukan permintaan `POST` atau `PATCH`.
+
+    - Contoh Bug Konkret yang Dicegah pada Model `Experience` dan `Award`: Pada `ExperienceSerializer` dan `AwardSerializer`, atribut seperti `ended_at`, `certificate_url`, dan `is_winner` bersifat opsional (`required=False` atau memiliki nilai default). Jika widget mengirim `Map<String, dynamic>` mentah menggunakan penamaan *camelCase* (`{"endedAt": "2026-11-25"}` atau `{"certificateUrl": "https://..."}`), DRF akan mengabaikan kunci yang tidak dikenal tersebut tanpa mengembalikan error dan tetap merespons `201 Created`, sehingga data tanggal selesai pengalaman atau tautan sertifikat penghargaan tersimpan kosong (`null`) secara diam-diam (*silent data loss*). Selain itu, mengecualikan `id` melalui `@JsonKey(includeToJson: false)` mencegah pengiriman `"id": null` di body request yang berpotensi memicu error validasi primary key pada serializer.
+
+2. Inisialisasi `Future` di dalam `initState()` dan Penggunaan `ApiException` pada `ApiClient`:
+
+    - Alasan `Future` Diinisialisasi di dalam `initState()`: Di Flutter, metode `build()` bersifat deklaratif dan dapat dipanggil berulang kali secara cepat setiap kali terjadi perubahan ukuran layar, kemunculan keyboard, animasi, atau pembaruan state widget induk. Jika pemanggilan HTTP seperti `context.read<ApiClient>().getExperiences()` atau `getAwards()` diletakkan langsung di dalam `build()`, setiap *rebuild* akan memicu permintaan jaringan baru dan mengembalikan `FutureBuilder` ke `ConnectionState.waiting`, yang menyebabkan tampilan berkedip (*flickering*), pemborosan kuota jaringan, dan beban berulang ke server Django. Dengan menyimpan `_experiencesFuture` dan `_awardsFuture` satu kali di dalam `initState()` (dan hanya memperbaruinya secara eksplisit di dalam metode `_reload()` saat pengguna menarik `RefreshIndicator` atau menekan tombol *Retry*), siklus pemanggilan API terpisah bersih dari siklus *rendering* UI.
+
+    - Alasan `ApiClient` Melempar `ApiException` Alih-alih Mengembalikan `null`: Mengembalikan nilai `null` ketika server merespons status non-2xx akan menyamarkan perbedaan antara "permintaan berhasil tetapi daftar memang kosong" dan "permintaan gagal karena error jaringan/otorisasi", sekaligus menghilangkan informasi kode status HTTP. Dengan melempar `ApiException(statusCode, message)` di dalam `_ensureSuccess()`, `FutureBuilder` dapat menangkap kegagalan melalui `snapshot.hasError` untuk merender pesan kesalahan beserta tombol *Retry*, sementara halaman form dan detail (`ExperienceFormPage`, `AwardFormPage`, `ExperienceDetailScreen`, dan `AwardDetailScreen`) dapat menangani status `401 Unauthorized` secara spesifik—yaitu menghapus sesi lokal melalui `AuthState.clearSession()` dan mengarahkan pengguna kembali ke `LoginScreen`—terpisah dari error validasi `400` atau error server `500`.
+
+3. Perbandingan `SessionAuthentication` Django dengan `TokenAuthentication` DRF serta Penggunaan Keduanya:
+
+    - Cara Kerja `SessionAuthentication` (Tutorial 04/07): Mekanisme ini bersifat *stateful* di sisi server. Saat pengguna login melalui browser, Django membuat entri sesi di database/cache dan mengirimkan cookie `sessionid` ke browser. Pada setiap permintaan berikutnya, browser otomatis menyertakan cookie tersebut, sehingga server wajib memvalidasi token CSRF (`X-CSRFToken`) pada setiap request non-GET untuk mencegah serangan *Cross-Site Request Forgery*.
+
+    - Cara Kerja `TokenAuthentication` (Tutorial 10): Mekanisme ini bersifat *stateless* terhadap cookie dan sesi browser. Klien mengirimkan kredensial (`username` dan `password`) satu kali ke endpoint `/api/v1/auth/token/` untuk mendapatkan kunci token unik, lalu menyisipkan kunci tersebut secara eksplisit pada header HTTP `Authorization: Token <key>` di setiap permintaan terautentikasi (`POST`, `PATCH`, `DELETE`, maupun `POST .../star/`), dan mencabutnya melalui `/api/v1/auth/logout/`.
+
+    - Alasan `myportfolio_mobile` Menggunakan `TokenAuthentication` Sementara `SessionAuthentication` Tetap Aktif di Django: Aplikasi mobile berbasis Flutter berjalan di luar lingkungan browser sehingga tidak mengelola cookie sesi dan token CSRF secara otomatis; autentikasi berbasis header `Authorization: Token <key>` jauh lebih eksplisit, lintas platform (Android, iOS, maupun Flutter Web), dan bebas dari kendala sinkronisasi cookie-CSRF lintas origin. Di sisi lain, `SessionAuthentication` tetap dipertahankan pada `REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"]` (diurutkan setelah `TokenAuthentication`) agar aplikasi web Django dari Tutorial 04/07—termasuk halaman HTML, Django Admin, dan panggilan AJAX `fetch` berbasis cookie—tetap berfungsi normal tanpa perlu diubah, sementara klien mobile yang tidak mengirim token tetap menerima respons `401 Unauthorized` yang sesuai.
+
+4. Peran Job `build` dan `build_apk` pada CI/CD serta Alasan `*.g.dart` Diabaikan di `.gitignore`:
+
+    - Peran Job `build` (`VeryGoodOpenSource/very_good_workflows`): Job ini berfungsi sebagai gerbang Continuous Integration (CI) otomatis setiap kali ada `push` ke branch `main` atau `pull_request`. Di balik layar, `flutter_package.yml@v2` menjalankan langkah persiapan (`setup: dart run build_runner build --delete-conflicting-outputs`), memeriksa konsistensi pemformatan kode (`dart format --output=none --set-exit-if-changed .`), melakukan analisis statis untuk mendeteksi warning atau error (`flutter analyze`), mengeksekusi seluruh unit test dan widget test beserta perhitungan *code coverage* (`flutter test --coverage` dengan mengecualikan `**/*.g.dart`), serta memverifikasi ambang `min_coverage`.
+
+    - Peran Job `build_apk`: Job ini berfungsi sebagai tahap Continuous Delivery (CD) yang dikonfigurasi dengan `needs: build` sehingga hanya dieksekusi apabila seluruh pemeriksaan kualitas di job `build` dinyatakan lulus. Job ini menyiapkan lingkungan Flutter channel `stable`, mengunduh dependensi (`flutter pub get`), menghasilkan ulang berkas serialisasi JSON (`dart run build_runner build --delete-conflicting-outputs`), mengompilasi paket rilis Android (`flutter build apk --release`), dan mengunggah `build/app/outputs/flutter-apk/app-release.apk` sebagai artefak bernama `app-release-apk` melalui `actions/upload-artifact@v4` agar dapat diunduh langsung dari halaman ringkasan GitHub Actions.
+
+    - Alasan Berkas `*.g.dart` Dimasukkan ke `.gitignore`: Berkas `*.g.dart` (`experience.g.dart` dan `award.g.dart`) merupakan kode hasil generasi mesin yang bersifat deterministik berdasarkan anotasi pada `lib/models/*.dart` dan versi dependensi di `pubspec.lock`. Mengecualikan berkas tersebut dari Git menjaga riwayat *commit* tetap ringkas dan berfokus pada kode yang ditulis manusia, menghindari konflik penggabungan (*merge conflict*) antar-branch pada kode turunan, serta mencegah *diff* yang berisik setiap kali atribut model diperbarui—sementara lingkungan CI/CD tetap dapat merekonstruksi berkas `*.g.dart` yang identik secara otomatis melalui perintah `build_runner`.
+
+AI DISCLOSURE
+
+1. Tools & Strategi Prompting
+
+    - Tools yang digunakan: Gemini sebagai asisten pemrograman dan peninjau arsitektur integrasi backend Flutter dan Django REST Framework.
+
+    - Strategi Prompting: Menggunakan pendekatan *context-grounded iterative prompting*—memberikan spesifikasi rubrik Tugas 9, berkas serializer dan routing backend Django (`serializers.py`, `api_urls.py`, `api_views.py`), serta berkas proyek Flutter yang sudah ada dari Tutorial 10 sebelum meminta implementasi bertahap yang dipecah ke dalam *conventional commits* berkala.
+
+    - Ringkasan Log Prompting:
+
+        - Prompt 1 (Inventaris & Rencana Kerja Bertahap): Memetakan berkas yang dibutuhkan dari `myportofolio_mobile` dan backend Django, lalu menyusun urutan pengerjaan per tahap dengan checkpoint *conventional commits*.
+
+        - Prompt 2 (Pemodelan JSON & Layanan API): Melengkapi atribut model `Experience` (`star_count`, `is_starred`, `starred_by_names`), membuat model `Award` beserta code generation `build_runner`, dan memperluas `ApiClient` dengan operasi `GET`, `POST`, `PATCH`, `DELETE`, serta `star/`.
+
+        - Prompt 3 (Antarmuka List, Detail, Form Terautentikasi, & Pengujian): Memperbarui halaman daftar/detail `Experience`, menambahkan halaman daftar/detail/formulir `Award`, menerapkan penanganan sesi `401`, serta menyusun unit test `MockClient` di `test/api_client_test.dart`.
+
+        - Prompt 4 (Refinement Dokumentasi): Menyusun jawaban reflektif dan analisis keterbatasan AI pada `README.md` sesuai gaya dokumentasi proyek.
+
+    - Bagian Spesifik yang Dibantu AI:
+
+        - Menyusun pemetaan `@JsonSerializable` pada `lib/models/award.dart` dan pembaruan `lib/models/experience.dart` agar selaras dengan serializer DRF.
+
+        - Merancang metode CRUD dan fitur *star* terautentikasi pada `lib/services/api_client.dart` serta komponen layar `AwardListScreen`, `AwardDetailScreen`, dan `AwardFormPage`.
+
+        - Menyusun kerangka pengujian otomatis menggunakan `MockClient` (`package:http/testing.dart`) pada `test/api_client_test.dart` untuk memverifikasi serialisasi *snake_case* dan penanganan status `401`.
+
+2. Analisis Keterbatasan AI & Perbaikan Manual yang Dilakukan
+
+    - Ketidaksesuaian Nullability pada Model vs Layar Detail Lama: Setelah atribut `thumbnail` pada model `Experience` diubah menjadi tipe non-nullable `String` dengan `@JsonKey(defaultValue: '')`, kode lama di `lib/screens/experience_detail_screen.dart` masih memeriksa `experience.thumbnail != null` dan memakai operator `!`. Hal ini memicu peringatan `unnecessary_null_comparison` dan `unnecessary_non_null_assertion` saat dijalankan `flutter analyze`. Saya membersihkan pemeriksaan null yang redundan tersebut secara manual hingga `flutter analyze` lulus tanpa isu.
+
+    - Pemisahan Pembersihan Sesi Lokal Saat Respons `401 Unauthorized`: Pada draf awal penanganan error `401`, pemanggilan `context.read<AuthState>().logout()` di blok `catch` ikut mengirimkan permintaan HTTP `POST` ke `/api/v1/auth/logout/` menggunakan token yang sebenarnya sudah kedaluwarsa atau dicabut di Django Admin. Saya menambahkan metode khusus `clearSession()` pada `lib/services/auth_state.dart` untuk langsung menghapus token di memori dan memberi tahu *listener* tanpa melakukan panggilan jaringan yang pasti gagal sebelum mengarahkan pengguna ke `LoginScreen`.
+
+    - Sinkronisasi Refresh Daftar Setelah Mutasi Data (Create, Edit, Delete, Star): Navigasi standar `Navigator.push()` ke layar detail atau formulir tidak otomatis memperbarui state daftar pada `ExperienceListScreen` dan `AwardListScreen` ketika pengguna kembali. Saya menambahkan callback `onDataChanged` pada layar detail serta meneruskan hasil objek tersimpan melalui `Navigator.pop(context, saved)` pada layar formulir agar daftar langsung memanggil `_reload()` begitu terjadi perubahan data.
+
+    - Kepatuhan Pemformatan CI (`very_good_workflows`): Beberapa baris kode hasil pengeditan memiliki panjang baris atau indentasi yang tidak sesuai standar formatter Dart sehingga berpotensi menggagalkan job `build` di GitHub Actions. Saya menjalankan `dart format .`, `dart format --output=none --set-exit-if-changed .`, `flutter analyze`, dan `flutter test` secara lokal sebelum melakukan *merge* dan *push* ke branch `main`.
