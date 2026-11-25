@@ -16,6 +16,13 @@ class AuthState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Clears local session state immediately when the server returns HTTP 401.
+  void clearSession() {
+    if (_token == null) return;
+    _token = null;
+    notifyListeners();
+  }
+
   Future<void> logout() async {
     final current = _token;
     if (current == null) return;
